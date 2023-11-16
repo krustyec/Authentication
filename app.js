@@ -4,7 +4,9 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 // const encrypt = require("mongoose-encryption");
-const md5 = require('md5');
+// const md5 = require('md5');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 const port = 3000;
@@ -40,18 +42,21 @@ app.get("/register", function(req, res){
 });
 
 app.post("/register", function(req, res) {
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  }); 
-
-  try {
-    // save the new user
-    newUser.save();
-    res.render("secrets");
-  } catch (error) {
-    console.log(err);
-  }
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const newUser = new User({
+      email: req.body.username,
+      password: hash
+    }); 
+  
+    try {
+      // save the new user
+      newUser.save();
+      console.log('User added successfully.');
+      res.render("secrets");
+    } catch (error) {
+      console.log(err);
+    }
+  });
 });
 
 app.post("/login", function(req, res) {
@@ -59,16 +64,23 @@ app.post("/login", function(req, res) {
   let result = req.body;
 
   const username = result.usernamelogin;
-  const password = md5(result.passwordlogin);
+  const password = result.passwordlogin;
 
   // find all documents
-  User.findOne({email: username}).then((data) => {
+  User.findOne({email: username}).then((foundUser) => {
     // console.log(data.password == password);
     try {
-      if (data.password == password) {
-        res.render("secrets");
+      if (foundUser) {
+        // Load hash from your password DB.
+        bcrypt.compare(password, foundUser.password, function(err, result) {
+          if (result === true) {
+            res.render("secrets");
+          } else {
+            console.log("Your password was incorrect, try again.");
+          } 
+        });
       } else {
-        console.log("Your password was incorrect, try again");
+        console.log("User not found.");
       }
     } catch (error) {
       console.log(error);
