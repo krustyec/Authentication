@@ -3,12 +3,6 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-// mongoose-encryption
-// const encrypt = require("mongoose-encryption");
-// const md5 = require('md5');
-// bcrypthash
-// const bcrypt = require('bcrypt');
-// const saltRounds = 10;
 // passport
 const session = require('express-session');
 const passport = require('passport');
@@ -39,20 +33,12 @@ app.use(passport.session());
 
 mongoose.connect('mongodb://127.0.0.1:27017/userDB');
 
-// passport optional
-// mongoose.set('useCreateIndex', true);
-
-// login users with the local authentication method
-// const userSchema = new mongoose.Schema({
-//   username: String,
-//   password: String
-// });
-
 // login with auth google
 const userSchema = new mongoose.Schema({
   username: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 // passport
@@ -60,18 +46,11 @@ userSchema.plugin(passportLocalMongoose);
 // google auth
 userSchema.plugin(findOrCreate);
 
-// used for mongoose-encryption
-// userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ['password']});
-
 // creating mongoose model
 const User = new mongoose.model("User", userSchema);
 
 // use static authenticate method of model in LocalStrategy
 passport.use(User.createStrategy());
-
-// use static serialize and deserialize of model for passport session support
-// passport.serializeUser(User.serializeUser());
-// passport.deserializeUser(User.deserializeUser());
 
 // use static serialize and deserialize of model for auth google
 passport.serializeUser(function(user, cb) {
@@ -134,6 +113,32 @@ app.get("/secrets", function(req, res) {
     console.log("User is not autenticated");
     res.render("login");
   }
+});
+
+app.get("/submit", function(req, res) {
+  if (req.isAuthenticated()) {
+    res.render("submit");
+    console.log("User is autenticated");
+  } else {
+    console.log("User is not autenticated");
+    res.render("login");
+  }
+});
+
+app.post("/submit", function(req, res) {
+  const submittedSecret = req.body.secret;
+  console.log(req.user.id);
+
+  User.findById(req.user.id).then((data) => {
+    console.log(data);
+    try {
+      data.secret = submittedSecret;
+      data.save();
+      res.redirect("/secrets");
+    } catch (error) {
+      console.log(error);
+    }
+  });
 });
 
 app.get("/logout", function(req, res) {
